@@ -1,0 +1,32 @@
+{
+  "serviceProviderConnections": {
+    "lamboHl7MllpTlsListener": {
+      "displayName": "MLLP over TLS listener (Lambogenius)",
+      "serviceProvider": {
+        "id": "/serviceProviders/lamboHl7Mllp"
+      },
+      "parameterValues": {
+        "host": "@appsetting('MLLP_LISTEN_HOST')",
+        "port": "@appsetting('MLLP_TLS_PORT')",
+        "useTls": "true",
+        "tlsVersion": "1.2",
+        "tlsCertificate": "@appsetting('MLLP_TLS_CERTIFICATE')",
+        "tlsCertificatePassword": "@appsetting('MLLP_TLS_CERTIFICATE_PASSWORD')"
+      }
+    },
+    "lamboHl7MllpLabTls": {
+      "displayName": "The lab's MLLP over TLS port, certificate pinned (Lambogenius)",
+      "serviceProvider": {
+        "id": "/serviceProviders/lamboHl7Mllp"
+      },
+      "parameterValues": {
+        "host": "@appsetting('LAB_HOST')",
+        "port": "@appsetting('LAB_TLS_PORT')",
+        "useTls": "true",
+        "tlsVersion": "1.2",
+        "tlsTrustedThumbprints": "@appsetting('LAB_TLS_THUMBPRINT')",
+        "tlsTrustedThumbprintsOnly": "true"
+      }
+    }
+  }
+}

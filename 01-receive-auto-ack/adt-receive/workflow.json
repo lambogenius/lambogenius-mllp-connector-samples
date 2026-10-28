@@ -1,0 +1,70 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "triggers": {
+      "When_a_message_is_received": {
+        "type": "ServiceProvider",
+        "description": "One-way receive, like a BizTalk one-way MLLP receive location: the connector answers AA (or CA in enhanced mode) once the run is saved. A batch becomes one run per message and one batch acknowledgement.",
+        "inputs": {
+          "parameters": {
+            "acknowledgementMode": "Auto",
+            "acknowledgementType": "Original",
+            "batchMode": "Split",
+            "rejectInvalidMessages": true,
+            "keepConnectionOpen": true,
+            "archive": true
+          },
+          "serviceProviderConfiguration": {
+            "connectionName": "lamboHl7MllpAdtListener",
+            "operationId": "receiveMessage",
+            "serviceProviderId": "/serviceProviders/lamboHl7Mllp"
+          }
+        }
+      }
+    },
+    "actions": {
+      "Find_the_PID_segment": {
+        "type": "Query",
+        "runAfter": {},
+        "inputs": {
+          "from": "@split(triggerBody()?['message'], decodeUriComponent('%0D'))",
+          "where": "@startsWith(item(), 'PID|')"
+        }
+      },
+      "Send_to_the_patient_registry": {
+        "type": "Http",
+        "runAfter": {
+          "Find_the_PID_segment": [ "Succeeded" ]
+        },
+        "inputs": {
+          "method": "POST",
+          "uri": "@{appsetting('REGISTRY_URL')}/adt",
+          "headers": { "Content-Type": "application/json" },
+          "body": {
+            "controlId": "@triggerBody()?['messageControlId']",
+            "messageType": "@triggerBody()?['messageType']",
+            "event": "@triggerBody()?['triggerEvent']",
+            "from": "@concat(triggerBody()?['sendingApplication'], '/', triggerBody()?['sendingFacility'])",
+            "patientId": "@if(empty(body('Find_the_PID_segment')), '', first(split(split(first(body('Find_the_PID_segment')), '|')[3], '^')))",
+            "patientName": "@if(empty(body('Find_the_PID_segment')), '', split(first(body('Find_the_PID_segment')), '|')[5])",
+            "batchControlId": "@triggerBody()?['batchControlId']",
+            "batchIndex": "@triggerBody()?['batchIndex']",
+            "batchCount": "@triggerBody()?['batchCount']",
+            "connectionId": "@triggerBody()?['connectionId']",
+            "sequenceNumber": "@triggerBody()?['sequenceNumber']",
+            "archiveId": "@triggerBody()?['archiveId']",
+            "message": "@triggerBody()?['message']"
+          },
+          "retryPolicy": {
+            "type": "fixed",
+            "count": 3,
+            "interval": "PT5S"
+          }
+        }
+      }
+    },
+    "outputs": {}
+  },
+  "kind": "Stateful"
+}

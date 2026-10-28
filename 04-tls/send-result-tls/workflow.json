@@ -1,0 +1,62 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "triggers": {
+      "When_an_HTTP_request_is_received": {
+        "type": "Request",
+        "kind": "Http",
+        "description": "POST an HL7 message (text/plain). It goes to the lab over MLLP with TLS; the lab's certificate must have the pinned thumbprint.",
+        "inputs": {}
+      }
+    },
+    "actions": {
+      "Send_message_over_TLS": {
+        "type": "ServiceProvider",
+        "runAfter": {},
+        "inputs": {
+          "parameters": {
+            "message": "@{triggerBody()}",
+            "waitForAck": true,
+            "ackTimeoutSeconds": 10,
+            "connectTimeoutSeconds": 10,
+            "keepConnectionOpen": false
+          },
+          "serviceProviderConfiguration": {
+            "connectionName": "lamboHl7MllpLabTls",
+            "operationId": "sendMessage",
+            "serviceProviderId": "/serviceProviders/lamboHl7Mllp"
+          },
+          "retryPolicy": { "type": "none" }
+        }
+      },
+      "Response": {
+        "type": "Response",
+        "kind": "Http",
+        "runAfter": {
+          "Send_message_over_TLS": [ "Succeeded" ]
+        },
+        "inputs": {
+          "statusCode": "@if(equals(body('Send_message_over_TLS')?['isPositive'], true), 200, 422)",
+          "body": "@body('Send_message_over_TLS')"
+        }
+      },
+      "Failure_response": {
+        "type": "Response",
+        "kind": "Http",
+        "runAfter": {
+          "Send_message_over_TLS": [ "Failed", "TimedOut" ]
+        },
+        "inputs": {
+          "statusCode": 502,
+          "body": {
+            "error": "The message could not be sent to the lab.",
+            "detail": "@outputs('Send_message_over_TLS')"
+          }
+        }
+      }
+    },
+    "outputs": {}
+  },
+  "kind": "Stateful"
+}

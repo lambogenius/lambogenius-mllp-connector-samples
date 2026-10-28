@@ -1,0 +1,6 @@
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.psm1 text eol=crlf
+*.nupkg binary
+# HL7 test messages are stored with LF line ends so they read well; the sender turns them into CR segment ends.
+*.hl7 text eol=lf

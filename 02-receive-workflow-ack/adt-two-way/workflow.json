@@ -1,0 +1,146 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "triggers": {
+      "When_a_message_is_received": {
+        "type": "ServiceProvider",
+        "description": "Two-way receive, like a BizTalk request-response MLLP receive location: the sender waits on the connection until this workflow runs 'Send acknowledgement'. After 10 seconds the connector answers AE itself.",
+        "inputs": {
+          "parameters": {
+            "acknowledgementMode": "Workflow",
+            "acknowledgementType": "Original",
+            "responseTimeoutSeconds": 10,
+            "timeoutBehavior": "SendNegativeAck"
+          },
+          "serviceProviderConfiguration": {
+            "connectionName": "lamboHl7MllpAdtTwoWay",
+            "operationId": "receiveMessage",
+            "serviceProviderId": "/serviceProviders/lamboHl7Mllp"
+          }
+        }
+      }
+    },
+    "actions": {
+      "Is_it_ADT": {
+        "type": "If",
+        "runAfter": {},
+        "expression": {
+          "and": [
+            {
+              "equals": [ "@triggerBody()?['messageCode']", "ADT" ]
+            }
+          ]
+        },
+        "actions": {
+          "Store_in_the_EHR": {
+            "type": "Http",
+            "inputs": {
+              "method": "POST",
+              "uri": "@{appsetting('EHR_URL')}/patients",
+              "headers": { "Content-Type": "application/json" },
+              "body": {
+                "controlId": "@triggerBody()?['messageControlId']",
+                "messageType": "@triggerBody()?['messageType']",
+                "message": "@triggerBody()?['message']"
+              },
+              "retryPolicy": { "type": "none" }
+            }
+          },
+          "What_did_the_EHR_say": {
+            "type": "Switch",
+            "runAfter": {
+              "Store_in_the_EHR": [ "Succeeded", "Failed", "TimedOut" ]
+            },
+            "expression": "@string(coalesce(outputs('Store_in_the_EHR')?['statusCode'], 0))",
+            "cases": {
+              "Stored": {
+                "case": "201",
+                "actions": {
+                  "Accept": {
+                    "type": "ServiceProvider",
+                    "inputs": {
+                      "parameters": {
+                        "contextId": "@triggerBody()?['contextId']",
+                        "ackCode": "AA",
+                        "text": "@concat('Stored as ', body('Store_in_the_EHR')?['patientKey'])"
+                      },
+                      "serviceProviderConfiguration": {
+                        "connectionName": "lamboHl7MllpAdtTwoWay",
+                        "operationId": "sendAcknowledgement",
+                        "serviceProviderId": "/serviceProviders/lamboHl7Mllp"
+                      }
+                    }
+                  }
+                }
+              },
+              "Refused": {
+                "case": "422",
+                "actions": {
+                  "Application_error": {
+                    "type": "ServiceProvider",
+                    "inputs": {
+                      "parameters": {
+                        "contextId": "@triggerBody()?['contextId']",
+                        "ackCode": "AE",
+                        "text": "@{body('Store_in_the_EHR')?['error']}",
+                        "errorCode": 207
+                      },
+                      "serviceProviderConfiguration": {
+                        "connectionName": "lamboHl7MllpAdtTwoWay",
+                        "operationId": "sendAcknowledgement",
+                        "serviceProviderId": "/serviceProviders/lamboHl7Mllp"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "default": {
+              "actions": {
+                "Not_available": {
+                  "type": "ServiceProvider",
+                  "inputs": {
+                    "parameters": {
+                      "contextId": "@triggerBody()?['contextId']",
+                      "ackCode": "AR",
+                      "text": "The EHR is not available. Send the message again later.",
+                      "errorCode": 207
+                    },
+                    "serviceProviderConfiguration": {
+                      "connectionName": "lamboHl7MllpAdtTwoWay",
+                      "operationId": "sendAcknowledgement",
+                      "serviceProviderId": "/serviceProviders/lamboHl7Mllp"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "else": {
+          "actions": {
+            "Unsupported_message_type": {
+              "type": "ServiceProvider",
+              "inputs": {
+                "parameters": {
+                  "contextId": "@triggerBody()?['contextId']",
+                  "ackCode": "AR",
+                  "text": "@concat('Unsupported message type ', triggerBody()?['messageCode'], ' ', triggerBody()?['triggerEvent'])",
+                  "errorCode": 200
+                },
+                "serviceProviderConfiguration": {
+                  "connectionName": "lamboHl7MllpAdtTwoWay",
+                  "operationId": "sendAcknowledgement",
+                  "serviceProviderId": "/serviceProviders/lamboHl7Mllp"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "outputs": {}
+  },
+  "kind": "Stateless"
+}

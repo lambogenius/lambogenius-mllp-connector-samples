@@ -1,0 +1,34 @@
+{
+  "serviceProviderConnections": {
+    "lamboHl7MllpAdtTwoWay": {
+      "displayName": "MLLP listener for ADT, workflow ACK (Lambogenius)",
+      "serviceProvider": {
+        "id": "/serviceProviders/lamboHl7Mllp"
+      },
+      "parameterValues": {
+        "host": "@appsetting('MLLP_LISTEN_HOST')",
+        "port": "@appsetting('MLLP_ADT_PORT')"
+      }
+    },
+    "lamboHl7MllpResults": {
+      "displayName": "MLLP listener for lab results (Lambogenius)",
+      "serviceProvider": {
+        "id": "/serviceProviders/lamboHl7Mllp"
+      },
+      "parameterValues": {
+        "host": "@appsetting('MLLP_LISTEN_HOST')",
+        "port": "@appsetting('MLLP_RESULTS_PORT')"
+      }
+    },
+    "lamboHl7MllpLabAcks": {
+      "displayName": "The lab's MLLP port for application ACKs (Lambogenius)",
+      "serviceProvider": {
+        "id": "/serviceProviders/lamboHl7Mllp"
+      },
+      "parameterValues": {
+        "host": "@appsetting('LAB_ACK_HOST')",
+        "port": "@appsetting('LAB_ACK_PORT')"
+      }
+    }
+  }
+}

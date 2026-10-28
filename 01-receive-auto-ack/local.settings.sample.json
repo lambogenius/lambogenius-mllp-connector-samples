@@ -1,0 +1,14 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet",
+    "APP_KIND": "workflowApp",
+    "FUNCTIONS_INPROC_NET8_ENABLED": "1",
+    "MLLP_LISTEN_HOST": "127.0.0.1",
+    "MLLP_ADT_PORT": "2301",
+    "REGISTRY_URL": "http://127.0.0.1:8301",
+    "LamboHl7Mllp__Archive__Targets": "File",
+    "LamboHl7Mllp__Archive__File__Path": "archive"
+  }
+}

@@ -1,0 +1,16 @@
+# The connector packages are downloaded from lambogenius.com; they are not part of this repository.
+packages/*.nupkg
+
+bin/
+obj/
+local.settings.json
+logs/
+archive/
+certs/
+.azurite/
+__azurite_db*
+__blobstorage__/
+__queuestorage__/
+workflow-designtime/
+__pycache__/
+.vs/

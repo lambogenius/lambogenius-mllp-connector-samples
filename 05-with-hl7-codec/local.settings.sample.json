@@ -1,0 +1,12 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet",
+    "APP_KIND": "workflowApp",
+    "FUNCTIONS_INPROC_NET8_ENABLED": "1",
+    "MLLP_LISTEN_HOST": "127.0.0.1",
+    "MLLP_PORT": "2305",
+    "REPOSITORY_URL": "http://127.0.0.1:8305"
+  }
+}

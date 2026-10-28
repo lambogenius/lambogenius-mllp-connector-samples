@@ -1,0 +1,14 @@
+{
+  "serviceProviderConnections": {
+    "lamboHl7MllpAdtListener": {
+      "displayName": "MLLP listener for ADT (Lambogenius)",
+      "serviceProvider": {
+        "id": "/serviceProviders/lamboHl7Mllp"
+      },
+      "parameterValues": {
+        "host": "@appsetting('MLLP_LISTEN_HOST')",
+        "port": "@appsetting('MLLP_ADT_PORT')"
+      }
+    }
+  }
+}

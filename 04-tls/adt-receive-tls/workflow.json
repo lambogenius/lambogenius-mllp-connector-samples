@@ -1,0 +1,47 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "triggers": {
+      "When_a_message_is_received_over_TLS": {
+        "type": "ServiceProvider",
+        "description": "MLLP over TLS 1.2. The server certificate comes from the connection (app setting MLLP_TLS_CERTIFICATE). Plain MLLP and other TLS versions are refused.",
+        "inputs": {
+          "parameters": {
+            "acknowledgementMode": "Auto",
+            "acknowledgementType": "Original"
+          },
+          "serviceProviderConfiguration": {
+            "connectionName": "lamboHl7MllpTlsListener",
+            "operationId": "receiveMessage",
+            "serviceProviderId": "/serviceProviders/lamboHl7Mllp"
+          }
+        }
+      }
+    },
+    "actions": {
+      "Record_the_message": {
+        "type": "Http",
+        "runAfter": {},
+        "inputs": {
+          "method": "POST",
+          "uri": "@{appsetting('RECORDER_URL')}/received-messages",
+          "headers": { "Content-Type": "application/json" },
+          "body": {
+            "controlId": "@triggerBody()?['messageControlId']",
+            "messageType": "@triggerBody()?['messageType']",
+            "tlsProtocol": "@triggerBody()?['tlsProtocol']",
+            "remoteEndpoint": "@triggerBody()?['remoteEndpoint']"
+          },
+          "retryPolicy": {
+            "type": "fixed",
+            "count": 3,
+            "interval": "PT5S"
+          }
+        }
+      }
+    },
+    "outputs": {}
+  },
+  "kind": "Stateful"
+}

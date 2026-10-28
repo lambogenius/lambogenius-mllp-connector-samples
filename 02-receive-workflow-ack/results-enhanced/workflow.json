@@ -1,0 +1,120 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "triggers": {
+      "When_a_result_is_received": {
+        "type": "ServiceProvider",
+        "description": "Enhanced acknowledgement mode: the lab fills in MSH-15 and MSH-16. The connector answers the commit acknowledgement (CA) as soon as the run is saved; this workflow sends the application acknowledgement later, as a new message to the lab, when MSH-16 asks for one.",
+        "inputs": {
+          "parameters": {
+            "acknowledgementMode": "Auto",
+            "acknowledgementType": "Original"
+          },
+          "serviceProviderConfiguration": {
+            "connectionName": "lamboHl7MllpResults",
+            "operationId": "receiveMessage",
+            "serviceProviderId": "/serviceProviders/lamboHl7Mllp"
+          }
+        }
+      }
+    },
+    "actions": {
+      "File_the_result_in_the_EHR": {
+        "type": "Http",
+        "runAfter": {},
+        "inputs": {
+          "method": "POST",
+          "uri": "@{appsetting('EHR_URL')}/results",
+          "headers": { "Content-Type": "application/json" },
+          "body": {
+            "controlId": "@triggerBody()?['messageControlId']",
+            "messageType": "@triggerBody()?['messageType']",
+            "message": "@triggerBody()?['message']"
+          },
+          "retryPolicy": { "type": "none" }
+        }
+      },
+      "Outcome": {
+        "type": "Compose",
+        "runAfter": {
+          "File_the_result_in_the_EHR": [ "Succeeded", "Failed", "TimedOut" ]
+        },
+        "inputs": {
+          "ackCode": "@if(equals(outputs('File_the_result_in_the_EHR')?['statusCode'], 201), 'AA', 'AE')",
+          "text": "@if(equals(outputs('File_the_result_in_the_EHR')?['statusCode'], 201), 'Result filed', coalesce(body('File_the_result_in_the_EHR')?['error'], 'The EHR is not available'))"
+        }
+      },
+      "Does_the_lab_want_an_application_ACK": {
+        "type": "If",
+        "description": "MSH-16: AL = always, ER = only on errors, NE = never, SU = only on success.",
+        "runAfter": {
+          "Outcome": [ "Succeeded" ]
+        },
+        "expression": {
+          "or": [
+            {
+              "equals": [ "@triggerBody()?['applicationAckType']", "AL" ]
+            },
+            {
+              "and": [
+                { "equals": [ "@triggerBody()?['applicationAckType']", "ER" ] },
+                { "equals": [ "@outputs('Outcome')?['ackCode']", "AE" ] }
+              ]
+            },
+            {
+              "and": [
+                { "equals": [ "@triggerBody()?['applicationAckType']", "SU" ] },
+                { "equals": [ "@outputs('Outcome')?['ackCode']", "AA" ] }
+              ]
+            }
+          ]
+        },
+        "actions": {
+          "Create_acknowledgement": {
+            "type": "ServiceProvider",
+            "inputs": {
+              "parameters": {
+                "message": "@triggerBody()?['message']",
+                "ackCode": "@outputs('Outcome')?['ackCode']",
+                "text": "@outputs('Outcome')?['text']"
+              },
+              "serviceProviderConfiguration": {
+                "connectionName": "lamboHl7MllpLabAcks",
+                "operationId": "createAcknowledgement",
+                "serviceProviderId": "/serviceProviders/lamboHl7Mllp"
+              }
+            }
+          },
+          "Send_the_application_ACK_to_the_lab": {
+            "type": "ServiceProvider",
+            "runAfter": {
+              "Create_acknowledgement": [ "Succeeded" ]
+            },
+            "inputs": {
+              "parameters": {
+                "message": "@body('Create_acknowledgement')?['acknowledgement']",
+                "waitForAck": false
+              },
+              "serviceProviderConfiguration": {
+                "connectionName": "lamboHl7MllpLabAcks",
+                "operationId": "sendMessage",
+                "serviceProviderId": "/serviceProviders/lamboHl7Mllp"
+              },
+              "retryPolicy": {
+                "type": "fixed",
+                "count": 3,
+                "interval": "PT5S"
+              }
+            }
+          }
+        },
+        "else": {
+          "actions": {}
+        }
+      }
+    },
+    "outputs": {}
+  },
+  "kind": "Stateful"
+}

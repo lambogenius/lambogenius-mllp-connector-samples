@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    NuGet-based Logic Apps Standard project that uses the HL7 MLLP Connector. ./run.ps1 builds it and runs
+    `func start` in bin/<Configuration>/net8.0.
+  -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <TargetFramework>net8.0</TargetFramework>
+    <AzureFunctionsVersion>v4</AzureFunctionsVersion>
+    <OutputType>Library</OutputType>
+    <PlatformTarget>x64</PlatformTarget>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Azure.Workflows.WebJobs.Extension" Version="1.170.91" />
+    <PackageReference Include="Microsoft.NET.Sdk.Functions" Version="4.5.0" />
+  </ItemGroup>
+
+  <!--
+    The connector. Download Lambogenius.MllpConnector.LogicApps.<version>.nupkg from lambogenius.com into ../packages;
+    the nuget.config at the repository root adds that folder as a package source.
+  -->
+  <PropertyGroup>
+    <MllpConnectorVersion Condition="'$(MllpConnectorVersion)' == ''">1.4.0</MllpConnectorVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Lambogenius.MllpConnector.LogicApps" Version="$(MllpConnectorVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="host.json;connections.json;parameters.json;**\workflow.json" Exclude="bin\**;obj\**;workflow-designtime\**" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="local.settings.json" Condition="Exists('local.settings.json')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
+  <!--
+    The VS Code Logic Apps extension writes "extensionBundle" into host.json when it opens the project, but with that
+    section `func start` loads built-in connectors from the extension bundle and ignores this project's packages. The
+    source host.json may keep it; the copies the runtime uses (build output and publish folder) have it removed.
+  -->
+  <Target Name="RemoveExtensionBundleFromOutputHostJson" AfterTargets="Build" Condition="Exists('$(OutDir)host.json')">
+    <PropertyGroup>
+      <_HostJsonText>$([System.IO.File]::ReadAllText('$(OutDir)host.json'))</_HostJsonText>
+      <_HostJsonStripped>$([System.Text.RegularExpressions.Regex]::Replace('$(_HostJsonText)', '"extensionBundle"\s*:\s*\{[^{}]*\}\s*,', ''))</_HostJsonStripped>
+      <_HostJsonStripped>$([System.Text.RegularExpressions.Regex]::Replace('$(_HostJsonStripped)', ',\s*"extensionBundle"\s*:\s*\{[^{}]*\}', ''))</_HostJsonStripped>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(OutDir)host.json" Lines="$([MSBuild]::Escape('$(_HostJsonStripped)'))" Overwrite="true" Condition="'$(_HostJsonStripped)' != '$(_HostJsonText)'" />
+  </Target>
+
+  <Target Name="RemoveExtensionBundleFromPublishHostJson" AfterTargets="Publish" Condition="'$(PublishDir)' != '' And Exists('$(PublishDir)host.json')">
+    <PropertyGroup>
+      <_HostJsonText>$([System.IO.File]::ReadAllText('$(PublishDir)host.json'))</_HostJsonText>
+      <_HostJsonStripped>$([System.Text.RegularExpressions.Regex]::Replace('$(_HostJsonText)', '"extensionBundle"\s*:\s*\{[^{}]*\}\s*,', ''))</_HostJsonStripped>
+      <_HostJsonStripped>$([System.Text.RegularExpressions.Regex]::Replace('$(_HostJsonStripped)', ',\s*"extensionBundle"\s*:\s*\{[^{}]*\}', ''))</_HostJsonStripped>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(PublishDir)host.json" Lines="$([MSBuild]::Escape('$(_HostJsonStripped)'))" Overwrite="true" Condition="'$(_HostJsonStripped)' != '$(_HostJsonText)'" />
+  </Target>
+</Project>

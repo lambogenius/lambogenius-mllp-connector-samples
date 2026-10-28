@@ -1,0 +1,86 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "triggers": {
+      "When_an_HTTP_request_is_received": {
+        "type": "Request",
+        "kind": "Http",
+        "description": "POST an HL7 message (text/plain). It goes to the lab over MLLP, and the caller gets the lab's acknowledgement.",
+        "inputs": {}
+      }
+    },
+    "actions": {
+      "Send_message": {
+        "type": "ServiceProvider",
+        "description": "Like a BizTalk solicit-response MLLP send port: send, wait for the ACK on the same connection, keep the connection open for the next message.",
+        "runAfter": {},
+        "inputs": {
+          "parameters": {
+            "message": "@{triggerBody()}",
+            "waitForAck": true,
+            "ackTimeoutSeconds": 5,
+            "keepConnectionOpen": true,
+            "validateAckControlId": true,
+            "failOnNegativeAck": false
+          },
+          "serviceProviderConfiguration": {
+            "connectionName": "lamboHl7MllpLab",
+            "operationId": "sendMessage",
+            "serviceProviderId": "/serviceProviders/lamboHl7Mllp"
+          },
+          "retryPolicy": { "type": "none" }
+        }
+      },
+      "Did_the_lab_accept_it": {
+        "type": "If",
+        "runAfter": {
+          "Send_message": [ "Succeeded" ]
+        },
+        "expression": {
+          "and": [
+            { "equals": [ "@body('Send_message')?['isPositive']", true ] }
+          ]
+        },
+        "actions": {
+          "Accepted": {
+            "type": "Response",
+            "kind": "Http",
+            "inputs": {
+              "statusCode": 200,
+              "body": "@body('Send_message')"
+            }
+          }
+        },
+        "else": {
+          "actions": {
+            "Rejected": {
+              "type": "Response",
+              "kind": "Http",
+              "inputs": {
+                "statusCode": 422,
+                "body": "@body('Send_message')"
+              }
+            }
+          }
+        }
+      },
+      "No_acknowledgement": {
+        "type": "Response",
+        "kind": "Http",
+        "runAfter": {
+          "Send_message": [ "Failed", "TimedOut" ]
+        },
+        "inputs": {
+          "statusCode": 504,
+          "body": {
+            "error": "The lab did not acknowledge the message.",
+            "detail": "@outputs('Send_message')"
+          }
+        }
+      }
+    },
+    "outputs": {}
+  },
+  "kind": "Stateful"
+}

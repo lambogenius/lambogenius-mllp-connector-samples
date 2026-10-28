@@ -1,0 +1,132 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "triggers": {
+      "When_a_message_is_received": {
+        "type": "ServiceProvider",
+        "description": "Two-way receive: the workflow decodes the message with the HL7 v2 Codec and returns the codec's acknowledgement with 'Send acknowledgement'.",
+        "inputs": {
+          "parameters": {
+            "acknowledgementMode": "Workflow",
+            "acknowledgementType": "Original",
+            "responseTimeoutSeconds": 20,
+            "timeoutBehavior": "SendNegativeAck"
+          },
+          "serviceProviderConfiguration": {
+            "connectionName": "lamboHl7MllpListener",
+            "operationId": "receiveMessage",
+            "serviceProviderId": "/serviceProviders/lamboHl7Mllp"
+          }
+        }
+      }
+    },
+    "actions": {
+      "Decode_HL7_message": {
+        "type": "ServiceProvider",
+        "description": "Schemaless mode: no XSDs are deployed, so fields get generic names such as PID_5_1. Only the versions listed are accepted (others get AR, code 203).",
+        "runAfter": {},
+        "inputs": {
+          "parameters": {
+            "message": "@triggerBody()?['message']",
+            "allowSchemaless": true,
+            "validateXml": false,
+            "outputFormat": "json",
+            "generateAck": true,
+            "ackMode": "Original",
+            "supportedVersions": "2.3,2.3.1,2.4,2.5,2.5.1"
+          },
+          "serviceProviderConfiguration": {
+            "connectionName": "lamboHl7Codec",
+            "operationId": "decode",
+            "serviceProviderId": "/serviceProviders/lamboHl7Codec"
+          }
+        }
+      },
+      "Was_it_decoded": {
+        "type": "If",
+        "runAfter": {
+          "Decode_HL7_message": [ "Succeeded" ]
+        },
+        "expression": {
+          "and": [
+            { "equals": [ "@body('Decode_HL7_message')?['ackCode']", "AA" ] }
+          ]
+        },
+        "actions": {
+          "Store_in_the_repository": {
+            "type": "Http",
+            "inputs": {
+              "method": "POST",
+              "uri": "@{appsetting('REPOSITORY_URL')}/messages",
+              "headers": { "Content-Type": "application/json" },
+              "body": {
+                "controlId": "@triggerBody()?['messageControlId']",
+                "messageType": "@triggerBody()?['messageType']",
+                "schema": "@first(body('Decode_HL7_message')?['messages'])?['schema']",
+                "decoded": "@json(body('Decode_HL7_message')?['json'])"
+              },
+              "retryPolicy": { "type": "none" }
+            }
+          },
+          "Return_the_codec_ACK": {
+            "type": "ServiceProvider",
+            "runAfter": {
+              "Store_in_the_repository": [ "Succeeded" ]
+            },
+            "inputs": {
+              "parameters": {
+                "contextId": "@triggerBody()?['contextId']",
+                "acknowledgement": "@body('Decode_HL7_message')?['ack']"
+              },
+              "serviceProviderConfiguration": {
+                "connectionName": "lamboHl7MllpListener",
+                "operationId": "sendAcknowledgement",
+                "serviceProviderId": "/serviceProviders/lamboHl7Mllp"
+              }
+            }
+          },
+          "Repository_not_available": {
+            "type": "ServiceProvider",
+            "runAfter": {
+              "Store_in_the_repository": [ "Failed", "TimedOut" ]
+            },
+            "inputs": {
+              "parameters": {
+                "contextId": "@triggerBody()?['contextId']",
+                "ackCode": "AR",
+                "text": "The repository is not available. Send the message again later.",
+                "errorCode": 207
+              },
+              "serviceProviderConfiguration": {
+                "connectionName": "lamboHl7MllpListener",
+                "operationId": "sendAcknowledgement",
+                "serviceProviderId": "/serviceProviders/lamboHl7Mllp"
+              }
+            }
+          }
+        },
+        "else": {
+          "actions": {
+            "Return_the_codec_NAK": {
+              "type": "ServiceProvider",
+              "inputs": {
+                "parameters": {
+                  "contextId": "@triggerBody()?['contextId']",
+                  "acknowledgement": "@body('Decode_HL7_message')?['ack']"
+                },
+                "serviceProviderConfiguration": {
+                  "connectionName": "lamboHl7MllpListener",
+                  "operationId": "sendAcknowledgement",
+                  "serviceProviderId": "/serviceProviders/lamboHl7Mllp"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "outputs": {}
+  },
+  "kind": "Stateless"
+}

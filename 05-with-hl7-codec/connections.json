@@ -1,0 +1,23 @@
+{
+  "serviceProviderConnections": {
+    "lamboHl7MllpListener": {
+      "displayName": "MLLP listener (Lambogenius)",
+      "serviceProvider": {
+        "id": "/serviceProviders/lamboHl7Mllp"
+      },
+      "parameterValues": {
+        "host": "@appsetting('MLLP_LISTEN_HOST')",
+        "port": "@appsetting('MLLP_PORT')"
+      }
+    },
+    "lamboHl7Codec": {
+      "displayName": "HL7 v2 (Lambogenius)",
+      "serviceProvider": {
+        "id": "/serviceProviders/lamboHl7Codec"
+      },
+      "parameterValues": {
+        "schemaFolder": ""
+      }
+    }
+  }
+}

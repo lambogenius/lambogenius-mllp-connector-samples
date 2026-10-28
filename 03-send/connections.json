@@ -1,0 +1,14 @@
+{
+  "serviceProviderConnections": {
+    "lamboHl7MllpLab": {
+      "displayName": "The lab's MLLP port (Lambogenius)",
+      "serviceProvider": {
+        "id": "/serviceProviders/lamboHl7Mllp"
+      },
+      "parameterValues": {
+        "host": "@appsetting('LAB_HOST')",
+        "port": "@appsetting('LAB_PORT')"
+      }
+    }
+  }
+}
